@@ -1,0 +1,2 @@
+﻿时间,折数,全量准确率均值,全量准确率标准差,留出验证均值,留出验证标准差,留出验证宏平均F1均值,fold1_full_acc,fold1_val_acc,fold2_full_acc,fold2_val_acc,fold3_full_acc,fold3_val_acc,fold4_full_acc,fold4_val_acc,fold5_full_acc,fold5_val_acc
+2026-08-08 16:10:25,5,0.9660,0.0116,0.9067,0.0286,0.9052,0.9800,0.9500,0.9617,0.9000,0.9667,0.8917,0.9467,0.8667,0.9750,0.9250

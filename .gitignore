@@ -1,0 +1,23 @@
+# 数据（太大 + 隐私）：raw 11GB + annotated 11GB + cache 565MB
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# 临时文件
+*_temp*.pth
+
+# 模型冗余（只保留 best + 5 折进仓库）
+models/best_model_3class_2.pth
+models/best_model_3class_3.pth
+
+# 系统文件
+.DS_Store
+Thumbs.db

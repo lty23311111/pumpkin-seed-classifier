@@ -1,0 +1,14 @@
+{
+  "metric": "validation_accuracy",
+  "records": [
+    {
+      "accuracy": 0.925
+    },
+    {
+      "accuracy": 0.925
+    },
+    {
+      "accuracy": 0.85
+    }
+  ]
+}
