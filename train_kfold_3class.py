@@ -253,20 +253,25 @@ print(f"  5 折交叉验证结果")
 print(f"{'='*60}")
 
 full_accs = [r["full_accuracy"] for r in results]
-val_accs = [r["val_accuracy"] for r in results]
+# 留出验证列取「各折最终采用的模型」得分 = max(本次, 旧记录)。
+# 被保留的旧折用记录值而非本次（本次可能更低），否则均值会低估实际集成。
+adopted_val_accs = [max(r["val_accuracy"], old_fold_accs.get(r["fold"], 0.0))
+                    for r in results]
 macro_f1s = [r["macro_f1"] for r in results]
 
 print(f"\n  {'折':<6} {'留出验证':>8} {'全量准确率':>10} {'宏平均 F1':>10}")
 print(f"  {'─'*40}")
-for r in results:
-    print(f"  Fold {r['fold']:<2}  {r['val_accuracy']:>8.4f}  {r['full_accuracy']:>10.4f}  "
+for r, va in zip(results, adopted_val_accs):
+    print(f"  Fold {r['fold']:<2}  {va:>8.4f}  {r['full_accuracy']:>10.4f}  "
           f"{r['macro_f1']:>10.4f}")
 
 print(f"\n  {'─'*40}")
-print(f"  均值     {np.mean(val_accs):>8.4f}  {np.mean(full_accs):>10.4f}  "
+print(f"  均值     {np.mean(adopted_val_accs):>8.4f}  {np.mean(full_accs):>10.4f}  "
       f"{np.mean(macro_f1s):>10.4f}")
-print(f"  标准差    {np.std(val_accs):>8.4f}  {np.std(full_accs):>10.4f}  "
+print(f"  标准差    {np.std(adopted_val_accs):>8.4f}  {np.std(full_accs):>10.4f}  "
       f"{np.std(macro_f1s):>10.4f}")
+print(f"\n  注: 留出验证列为各折最终采用模型的分数（旧记录与本次取优）；")
+print(f"      全量准确率/宏F1 为本次训练的测量值。")
 
 # 每类 F1 汇总
 print(f"\n  各类 F1 均值:")
@@ -283,14 +288,15 @@ summary_row = {
     "折数": N_FOLDS,
     "全量准确率均值": f"{np.mean(full_accs):.4f}",
     "全量准确率标准差": f"{np.std(full_accs):.4f}",
-    "留出验证均值": f"{np.mean(val_accs):.4f}",
-    "留出验证标准差": f"{np.std(val_accs):.4f}",
+    "留出验证均值": f"{np.mean(adopted_val_accs):.4f}",
+    "留出验证标准差": f"{np.std(adopted_val_accs):.4f}",
     "留出验证宏平均F1均值": f"{np.mean(macro_f1s):.4f}",
 }
 
 for r in results:
     summary_row[f"fold{r['fold']}_full_acc"] = f"{r['full_accuracy']:.4f}"
-    summary_row[f"fold{r['fold']}_val_acc"] = f"{r['val_accuracy']:.4f}"
+    summary_row[f"fold{r['fold']}_val_acc"] = (
+        f"{max(r['val_accuracy'], old_fold_accs.get(r['fold'], 0.0)):.4f}")
 
 write_header = not KFOLD_LOG.exists()
 try:

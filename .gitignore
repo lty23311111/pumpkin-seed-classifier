@@ -21,3 +21,5 @@ models/best_model_3class_3.pth
 # 系统文件
 .DS_Store
 Thumbs.db
+# 缓存同步并发锁
+.sync_cache.lock
