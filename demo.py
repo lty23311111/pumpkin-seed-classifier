@@ -15,6 +15,8 @@ from model_utils import (load_ensemble, predict_soft_vote, ensemble_description,
                          CLASS_NAMES_SPACED as CLASS_NAMES)
 from ui_theme import GRADE_COLORS, GRADE_BG, C_BG, C_SFC, C_TXT, C_TXT3 as C_TXT2, FONT, MONO
 
+BASE = Path(__file__).parent
+
 # 使用公共模型与推理逻辑，确保与 GUI / 命令行预测一致。
 _models = load_ensemble()
 _transform = INFERENCE_TRANSFORM
