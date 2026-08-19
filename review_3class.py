@@ -9,57 +9,25 @@ import tkinter as tk
 from tkinter import messagebox
 
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
-from torchvision import datasets, models, transforms
+from torchvision import datasets
 from PIL import Image, ImageTk
+
+from model_utils import load_ensemble, INFERENCE_TRANSFORM, NUM_CLASSES, DEVICE
+from ui_theme import GRADE_COLORS_1, FONT
 
 BASE = Path(__file__).parent
 RAW = BASE / "data" / "raw"
 ANNOTATED = BASE / "data" / "annotated_3class"
-MODEL_DIR = BASE / "models"
 
-NUM_CLASSES = 3
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 CLASS_NAMES = {1: "一级·完好", 2: "二级·轻微瑕疵", 3: "三级·明显瑕疵"}
-GRADE_COLORS = {1: "#4caf50", 2: "#ff9800", 3: "#ef5350"}
+GRADE_COLORS = GRADE_COLORS_1
 
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-])
+transform = INFERENCE_TRANSFORM
 
-# 加载模型：新高必入 + fold 补充投票（与 gui.py 一致）
-_models: list[nn.Module] = []
-model_files: list[Path] = []
-
-best_path = MODEL_DIR / "best_model_3class.pth"
-if best_path.exists():
-    model_files.append(best_path)
-
-for fp in sorted(MODEL_DIR.glob("fold_*.pth")):
-    if fp not in model_files:
-        model_files.append(fp)
-
-for p in [MODEL_DIR / "best_model_3class_2.pth",
-          MODEL_DIR / "best_model_3class_3.pth"]:
-    if p.exists() and p not in model_files:
-        model_files.append(p)
-
-for mp in model_files:
-    m = models.resnet50()
-    m.fc = nn.Sequential(nn.Dropout(0.4), nn.Linear(2048, NUM_CLASSES))
-    m.load_state_dict(torch.load(mp, map_location=DEVICE, weights_only=True))
-    m = m.to(DEVICE)
-    m.eval()
-    _models.append(m)
-
-if not _models:
-    raise FileNotFoundError("未找到任何模型文件，请先运行 train_3class.py")
-
+# 加载模型：使用公共模块（与 gui.py 一致）
+_models = load_ensemble()
 n_models = len(_models)
-print(f"已加载 {n_models} 个模型" + (" (投票)" if n_models > 1 else " (单模型)"))
 
 # 用投票方式预测
 print("预测中...")

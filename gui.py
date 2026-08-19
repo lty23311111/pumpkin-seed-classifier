@@ -8,105 +8,34 @@ import csv
 from collections import Counter
 from pathlib import Path
 
-import torch
-import torch.nn as nn
 from PIL import Image, ImageTk
-from torchvision import models, transforms
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import DND_FILES, TkinterDnD
+
+from model_utils import (load_ensemble, predict_soft_vote, ensemble_description,
+                         INFERENCE_TRANSFORM, NUM_CLASSES, DEVICE,
+                         CLASS_NAMES_SPACED as CLASS_NAMES, CLASS_TAGS)
+from ui_theme import C, FONT, MONO, lighter
 
 # ═══════════════════════════════════════════════════════════════
 #  配置
 # ═══════════════════════════════════════════════════════════════
 BASE = Path(__file__).parent
-MODEL_PATH = BASE / "models" / "best_model_3class.pth"
-NUM_CLASSES = 3
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-CLASS_NAMES = ["一级 · 完好", "二级 · 轻微瑕疵", "三级 · 明显瑕疵"]
-CLASS_TAGS  = ["一级", "二级", "三级"]
 CLASS_ICONS = ["✓", "△", "✕"]
 
-C = {
-    "bg":           "#1f1f1f",
-    "surface":      "#2c2c2c",
-    "surface2":     "#363636",
-    "border":       "#3e3e3e",
-    "text":         "#f0f0f0",
-    "text2":        "#b0b0b0",
-    "text3":        "#7a7a7a",
-    "accent":       "#ff8c00",
-    "accent_hover": "#ffa726",
-    "green":        "#4caf50",
-    "amber":        "#ff9800",
-    "orange":       "#ff7043",
-    "red":          "#ef5350",
-    "green_bg":     "#1e3520",
-    "amber_bg":     "#3d301e",
-    "orange_bg":    "#3d241e",
-    "red_bg":       "#3d1e1e",
-}
-FONT = "Microsoft YaHei UI"
-MONO = "Cascadia Code"
+# 加载模型：使用公共模块（新高模型必入 + 旧模型补充投票）
+_models = load_ensemble()
+_model_source = ensemble_description(len(_models))
 
-# 加载模型：新高模型必入 + 旧模型补充投票
-_models: list[nn.Module] = []
-_model_source = ""
-
-model_files: list[Path] = []
-
-best_path = BASE / "models" / "best_model_3class.pth"
-if best_path.exists():
-    model_files.append(best_path)
-
-# K 折模型补充，不重复
-for fp in sorted((BASE / "models").glob("fold_*.pth")):
-    if fp not in model_files:
-        model_files.append(fp)
-
-# Top-3 中未覆盖的
-for p in [
-    BASE / "models" / "best_model_3class_2.pth",
-    BASE / "models" / "best_model_3class_3.pth",
-]:
-    if p.exists() and p not in model_files:
-        model_files.append(p)
-
-if len(model_files) >= 5:
-    _model_source = f"投票 ×{len(model_files)}（新高 + 旧折）"
-elif len(model_files) >= 2:
-    _model_source = f"投票 ×{len(model_files)}"
-elif model_files:
-    _model_source = "单模型"
-else:
-    raise FileNotFoundError("未找到任何模型文件，请先运行 train_3class.py")
-
-for mp in model_files:
-    m = models.resnet50()
-    m.fc = nn.Sequential(nn.Dropout(0.4), nn.Linear(2048, NUM_CLASSES))
-    m.load_state_dict(torch.load(mp, map_location=DEVICE, weights_only=True))
-    m = m.to(DEVICE)
-    m.eval()
-    _models.append(m)
-
-_transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-])
+_transform = INFERENCE_TRANSFORM
 
 
 def predict_single(image_path: str | Path) -> tuple[int, list[float]]:
     img = Image.open(image_path).convert("RGB")
-    t = _transform(img).unsqueeze(0).to(DEVICE)
-    with torch.no_grad():
-        all_probs = []
-        for m in _models:
-            out = m(t)
-            all_probs.append(torch.softmax(out, dim=1)[0].cpu().tolist())
-    avg_probs = [(sum(p[i] for p in all_probs) / len(all_probs)) for i in range(NUM_CLASSES)]
-    return max(range(NUM_CLASSES), key=avg_probs.__getitem__), avg_probs
+    t = _transform(img).unsqueeze(0)
+    return predict_soft_vote(_models, t, DEVICE)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -538,7 +467,7 @@ class SeedClassifierApp:
                 writer.writerow(cols)
                 for item in tree.get_children():
                     writer.writerow(tree.item(item)["values"])
-            messagebox.showinfo("导出成功", f"已保存至:\n{csv_path}")
+            messagebox.showinfo("导出成功", f"已保存至：\n{csv_path}")
 
         self._secondary_btn(btn_bar, "📥  导出 CSV", _export).pack(side=tk.RIGHT)
 

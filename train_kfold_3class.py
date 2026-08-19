@@ -11,10 +11,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Subset, WeightedRandomSampler
-from torchvision import datasets, models, transforms
+from torchvision import datasets
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import classification_report
 from tqdm import tqdm
+
+from model_utils import (build_resnet50, TRAIN_TRANSFORM, VAL_TRANSFORM,
+                         NUM_CLASSES, DEVICE, CLASS_NAMES)
 
 BASE = Path(__file__).parent
 # 使用 512/1024 预处理缓存加速（verify_cache.py 验证 1024 与全分辨率一致率 99.83%）
@@ -28,31 +31,10 @@ MODEL_DIR.mkdir(exist_ok=True)
 BATCH_SIZE = 32
 EPOCHS = 60
 LR = 0.001
-IMG_SIZE = 224
-NUM_CLASSES = 3
 N_FOLDS = 5
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-CLASS_NAMES = ["一级·完好", "二级·轻微瑕疵", "三级·明显瑕疵"]
-
-# ─── 数据增强（与 train_3class.py 完全一致） ───
-train_transform = transforms.Compose([
-    transforms.RandomResizedCrop(IMG_SIZE, scale=(0.7, 1.0)),
-    transforms.RandomHorizontalFlip(p=0.5),
-    transforms.RandomVerticalFlip(p=0.3),
-    transforms.RandomRotation(30),
-    transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.2, hue=0.05),
-    transforms.RandomGrayscale(p=0.05),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-    transforms.RandomErasing(p=0.2, scale=(0.02, 0.1)),
-])
-
-val_transform = transforms.Compose([
-    transforms.Resize((IMG_SIZE, IMG_SIZE)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-])
+# ─── 数据增强（公共定义，与日常训练保持一致） ───
+train_transform = TRAIN_TRANSFORM
+val_transform = VAL_TRANSFORM
 
 # ─── 数据集 ───
 print("加载数据集...")
@@ -73,9 +55,7 @@ print(f"{'='*60}")
 
 def build_model():
     """每次从头构建新模型（各折独立，不共享权重）。"""
-    m = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
-    m.fc = nn.Sequential(nn.Dropout(0.4), nn.Linear(m.fc.in_features, NUM_CLASSES))
-    return m.to(DEVICE)
+    return build_resnet50(pretrained=True).to(DEVICE)
 
 
 def train_one_fold(fold_idx: int, train_idx: np.ndarray, val_idx: np.ndarray,

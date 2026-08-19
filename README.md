@@ -32,6 +32,9 @@
 ├── gui.py                 # 图形界面（拖拽/批量预测/CSV 导出）
 ├── predict.py             # 命令行推理工具（单张/文件夹）
 ├── demo.py                # 现场验收演示（人机对比 + 实时一致率）
+├── model_utils.py          # 公共模型、预处理与软投票逻辑
+├── ui_theme.py             # 图形界面共用主题与颜色配置
+├── requirements.txt        # 可复现的 Python 依赖清单
 ├── analysis/              # 失败分析：3 张人机分歧 + 每类典型示例
 ├── training_log.csv       # 训练记录
 ├── kfold_log.csv          # 5 折交叉验证记录
@@ -41,6 +44,9 @@
 ## 使用方法
 
 ```bash
+# 安装依赖（建议在虚拟环境中执行）
+pip install -r requirements.txt
+
 # 训练（数据源已切换到预处理缓存 data/cache_1024，约 20 分钟）
 python train_3class.py
 

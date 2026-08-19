@@ -14,22 +14,16 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 from PIL import Image
-from torchvision import models, transforms
+
+from model_utils import build_resnet50, INFERENCE_TRANSFORM, DEVICE
 
 BASE = Path(__file__).parent
 ANNOTATED = BASE / "data" / "annotated_3class"
 MODEL_PATH = BASE / "models" / "best_model_3class.pth"
-NUM_CLASSES = 3
 CACHE_SIZE = int(os.environ.get("CACHE_SIZE", "512"))  # 缓存最长边
 CACHE = BASE / "data" / f"cache_{CACHE_SIZE}"
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-])
+transform = INFERENCE_TRANSFORM
 
 # ─── 收集全部图片（按 类别/文件名 稳定排序） ───
 samples: list[tuple[int, str]] = []
@@ -61,8 +55,7 @@ def build_cache() -> None:
 
 
 def load_model() -> nn.Module:
-    m = models.resnet50()
-    m.fc = nn.Sequential(nn.Dropout(0.4), nn.Linear(2048, NUM_CLASSES))
+    m = build_resnet50()
     m.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True))
     m = m.to(DEVICE).eval()
     return m

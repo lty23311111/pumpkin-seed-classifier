@@ -15,6 +15,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 
+from ui_theme import (C_BG, C_SFC, C_TXT, C_TXT2, C_TXT3,
+                      CLASS_COLORS, GRADE_BG_LIST, FONT, MONO, lighter)
+
 BASE = Path(__file__).parent
 RAW = BASE / "data" / "raw"
 ANNOTATED = BASE / "data" / "annotated_3class"
@@ -22,16 +25,7 @@ ANNOTATED = BASE / "data" / "annotated_3class"
 NUM_CLASSES = 3
 CLASS_NAMES = ["一级 · 完好", "二级 · 轻微瑕疵", "三级 · 明显瑕疵"]
 CLASS_SHORT = ["一级", "二级", "三级"]
-CLASS_COLORS = ["#4caf50", "#ff9800", "#ef5350"]
-CLASS_BG = ["#1e3520", "#3d301e", "#3d1e1e"]
-
-C_BG = "#1f1f1f"
-C_SFC = "#2c2c2c"
-C_TXT = "#f0f0f0"
-C_TXT2 = "#b0b0b0"
-C_TXT3 = "#7a7a7a"
-FONT = "Microsoft YaHei UI"
-MONO = "Cascadia Code"
+CLASS_BG = GRADE_BG_LIST
 
 IMG_MAX_W, IMG_MAX_H = 1160, 740
 
@@ -154,9 +148,7 @@ class Annotator:
 
     @staticmethod
     def _lighter(hex_color):
-        r, g, b = int(hex_color[1:3], 16), int(hex_color[3:5], 16), int(hex_color[5:7], 16)
-        r, g, b = min(255, r + 36), min(255, g + 36), min(255, b + 36)
-        return f"#{r:02x}{g:02x}{b:02x}"
+        return lighter(hex_color)
 
     # ── 核心 ──────────────────────────────────────────────────
 

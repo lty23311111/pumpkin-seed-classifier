@@ -6,73 +6,23 @@ import time
 from pathlib import Path
 from collections import Counter
 
-import torch
-import torch.nn as nn
 from PIL import Image, ImageTk
-from torchvision import models, transforms
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-BASE = Path(__file__).parent
-MODEL_DIR = BASE / "models"
-NUM_CLASSES = 3
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from model_utils import (load_ensemble, predict_soft_vote, ensemble_description,
+                         INFERENCE_TRANSFORM, NUM_CLASSES, DEVICE,
+                         CLASS_NAMES_SPACED as CLASS_NAMES)
+from ui_theme import GRADE_COLORS, GRADE_BG, C_BG, C_SFC, C_TXT, C_TXT3 as C_TXT2, FONT, MONO
 
-CLASS_NAMES = ["一级 · 完好", "二级 · 轻微瑕疵", "三级 · 明显瑕疵"]
-GRADE_COLORS = {0: "#4caf50", 1: "#ff9800", 2: "#ef5350"}
-GRADE_BG     = {0: "#1e3520", 1: "#3d301e", 2: "#3d1e1e"}
-C_BG, C_SFC, C_TXT, C_TXT2 = "#1f1f1f", "#2c2c2c", "#f0f0f0", "#7a7a7a"
-FONT = "Microsoft YaHei UI"
-MONO = "Cascadia Code"
-
-# 加载模型：新高必入 + fold 补充投票（与 gui.py 一致）
-_models: list[nn.Module] = []
-model_files: list[Path] = []
-
-best_path = MODEL_DIR / "best_model_3class.pth"
-if best_path.exists():
-    model_files.append(best_path)
-
-for fp in sorted(MODEL_DIR.glob("fold_*.pth")):
-    if fp not in model_files:
-        model_files.append(fp)
-
-for p in [MODEL_DIR / "best_model_3class_2.pth",
-          MODEL_DIR / "best_model_3class_3.pth"]:
-    if p.exists() and p not in model_files:
-        model_files.append(p)
-
-for mp in model_files:
-    m = models.resnet50()
-    m.fc = nn.Sequential(nn.Dropout(0.4), nn.Linear(2048, NUM_CLASSES))
-    m.load_state_dict(torch.load(mp, map_location=DEVICE, weights_only=True))
-    m = m.to(DEVICE)
-    m.eval()
-    _models.append(m)
-
-if not _models:
-    raise FileNotFoundError("未找到任何模型文件，请先运行 train_3class.py")
-
-_transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-])
+# 使用公共模型与推理逻辑，确保与 GUI / 命令行预测一致。
+_models = load_ensemble()
+_transform = INFERENCE_TRANSFORM
 
 
 def predict(img_path: Path):
     img = Image.open(img_path).convert("RGB")
-    t = _transform(img).unsqueeze(0).to(DEVICE)
-    with torch.no_grad():
-        all_preds = []
-        all_probs = []
-        for m in _models:
-            out = m(t)
-            all_preds.append(out.argmax(1).item())
-            all_probs.append(torch.softmax(out, dim=1)[0].cpu().tolist())
-    avg_probs = [(sum(p[i] for p in all_probs) / len(all_probs)) for i in range(NUM_CLASSES)]
-    pred = max(range(NUM_CLASSES), key=avg_probs.__getitem__)
-    return pred, avg_probs
+    return predict_soft_vote(_models, _transform(img).unsqueeze(0), DEVICE)
 
 
 class DemoApp:
@@ -98,7 +48,7 @@ class DemoApp:
         tk.Label(bar, text="🎃  南瓜子外观质量分类 · 现场验收演示", fg=C_TXT, bg=C_SFC,
                  font=(FONT, 15, "bold")).pack(side=tk.LEFT, padx=20, pady=12)
         n_models = len(_models)
-        model_badge = f"投票 ×{n_models}" if n_models > 1 else "单模型"
+        model_badge = ensemble_description(n_models)
         tk.Label(bar, text=f"ResNet-50  ·  3 分类  ·  {model_badge}",
                  fg="#ff8c00", bg=C_SFC, font=(FONT, 9)).pack(side=tk.LEFT, padx=8, pady=14)
         self._score_label = tk.Label(bar, text="", fg="#ff8c00", bg=C_SFC, font=(FONT, 12, "bold"))

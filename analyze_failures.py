@@ -13,44 +13,24 @@ import csv
 
 import numpy as np
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
-from torchvision import datasets, models, transforms
+from torchvision import datasets
 from PIL import Image, ImageDraw
+
+from model_utils import (load_ensemble, INFERENCE_TRANSFORM,
+                         NUM_CLASSES, DEVICE, CLASS_NAMES)
 
 BASE = Path(__file__).parent
 ANNOTATED = BASE / "data" / "cache_1024"
-MODEL_DIR = BASE / "models"
 OUT_DIR = BASE / "analysis"
-NUM_CLASSES = 3
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-CLASS_NAMES = ["一级·完好", "二级·轻微瑕疵", "三级·明显瑕疵"]
 GRADE = {1: "一级", 2: "二级", 3: "三级"}
 
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-])
+transform = INFERENCE_TRANSFORM
 
-# ─── 加载全部模型（与 gui.py 一致） ───
-model_files = []
-for name in ["best_model_3class.pth", "best_model_3class_2.pth", "best_model_3class_3.pth"]:
-    p = MODEL_DIR / name
-    if p.exists():
-        model_files.append(p)
-for fp in sorted(MODEL_DIR.glob("fold_*.pth")):
-    model_files.append(fp)
-
-ms = []
-for p in model_files:
-    m = models.resnet50()
-    m.fc = nn.Sequential(nn.Dropout(0.4), nn.Linear(2048, NUM_CLASSES))
-    m.load_state_dict(torch.load(p, map_location=DEVICE, weights_only=True))
-    m = m.to(DEVICE).eval()
-    ms.append(m)
-print(f"已加载 {len(ms)} 个模型: {[f.name for f in model_files]}")
+# ─── 加载全部模型（使用公共模块） ───
+ms = load_ensemble()
+print(f"已加载 {len(ms)} 个模型")
 
 # ─── 预测全部 600 张 ───
 ds = datasets.ImageFolder(root=str(ANNOTATED), transform=transform)
